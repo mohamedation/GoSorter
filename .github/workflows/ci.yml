@@ -90,8 +90,8 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3
       with:
-        version: latest
-        args: --timeout=5m
+        version: v2.0.0
+        args: --timeout=5m --out-format=colored-line-number
 
   security:
     name: Security Scan
@@ -106,6 +106,6 @@ jobs:
         go-version: '1.23.4'
 
     - name: Run Gosec Security Scanner
-      uses: securecodewarrior/github-action-gosec@master
+      uses: securego/gosec@v2.20.0
       with:
-        args: './...'
+        args: ./...

@@ -51,6 +51,27 @@ jobs:
     - name: Download dependencies
       run: go mod download
 
+    - name: Check Go formatting
+      run: |
+        UNFORMATTED=$(gofmt -s -l .)
+        if [ -n "$UNFORMATTED" ]; then
+          echo "Code is not formatted correctly. Please run 'go fmt ./...'"
+          echo "$UNFORMATTED"
+          exit 1
+        fi
+      if: runner.os != 'Windows'
+
+    - name: Check Go formatting (Windows)
+      run: |
+        $files = gofmt -s -l .
+        if ($files) {
+          Write-Host "Code is not formatted correctly. Please run 'go fmt ./...'"
+          Write-Host $files
+          exit 1
+        }
+      shell: powershell
+      if: runner.os == 'Windows'
+
     - name: Run tests
       run: go test -v ./...
 
