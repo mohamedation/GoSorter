@@ -47,17 +47,6 @@ jobs:
         fi
       if: runner.os != 'Windows'
 
-    - name: Format check (Windows)
-      run: |
-        $files = gofmt -s -l .
-        if ($files) {
-          Write-Host "Code is not formatted correctly. Please run 'go fmt ./...'"
-          Write-Host $files
-          exit 1
-        }
-      shell: powershell
-      if: runner.os == 'Windows'
-
     - name: Vet
       run: go vet ./...
 
@@ -91,7 +80,7 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: v2.0.0
-        args: --timeout=5m --out-format=colored-line-number
+        args: --timeout=5m
 
   security:
     name: Security Scan
@@ -105,7 +94,8 @@ jobs:
       with:
         go-version: '1.23.4'
 
+    - name: Install Gosec
+      run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
     - name: Run Gosec Security Scanner
-      uses: securego/gosec@v2.20.0
-      with:
-        args: ./...
+      run: ~/go/bin/gosec ./...
