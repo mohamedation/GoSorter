@@ -22,7 +22,7 @@ func MoveFile(src, dst string, cfg model.Config, logger Logger) error {
 	} else if !os.IsExist(err) && !os.IsPermission(err) {
 		return err
 	}
-
+	src = filepath.Clean(src)
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -32,7 +32,7 @@ func MoveFile(src, dst string, cfg model.Config, logger Logger) error {
 			logger.Log(cfg, Error, fmt.Sprintf("error closing srcFile: %v", err))
 		}
 	}()
-
+	dst = filepath.Clean(dst)
 	dstFile, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func FormatPath(path string, cfg model.Config) string {
 func MoveDuplicateFile(folderPath, fileName, originalPath string, cfg model.Config, logger Logger) {
 	duplicatesFolder := filepath.Join(folderPath, "Duplicates")
 	if !FolderExists(duplicatesFolder) {
-		if err := os.MkdirAll(duplicatesFolder, os.ModePerm); err != nil {
+		if err := os.MkdirAll(duplicatesFolder, 0750); err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to create folder %s: %v\n", duplicatesFolder, err))
 			return
 		}
@@ -95,7 +95,7 @@ func MoveDuplicateFile(folderPath, fileName, originalPath string, cfg model.Conf
 func MoveExtractedArchive(folderPath, fileName string, cfg model.Config, logger Logger) {
 	extractedFolder := filepath.Join(folderPath, "Archives-Extracted")
 	if !FolderExists(extractedFolder) {
-		if err := os.MkdirAll(extractedFolder, os.ModePerm); err != nil {
+		if err := os.MkdirAll(extractedFolder, 0750); err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to create folder %s: %v\n", extractedFolder, err))
 			return
 		}
@@ -119,7 +119,7 @@ func FileExists(path string) bool {
 func MoveFileToTargetFolder(folderPath, fileName, targetFolder string, cfg model.Config, logger Logger) {
 	targetPath := filepath.Join(folderPath, targetFolder)
 	if !FolderExists(targetPath) {
-		if err := os.MkdirAll(targetPath, os.ModePerm); err != nil {
+		if err := os.MkdirAll(targetPath, 0750); err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to create folder %s: %v\n", targetPath, err))
 			return
 		}

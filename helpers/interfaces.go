@@ -38,7 +38,7 @@ func (o *OSFileOperations) HashFile(path string, cfg model.Config, logger Logger
 }
 
 func (o *OSFileOperations) CreateFolder(path string) error {
-	return os.MkdirAll(path, os.ModePerm)
+	return os.MkdirAll(path, 0750)
 }
 
 type FileMover struct {

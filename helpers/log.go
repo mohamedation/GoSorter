@@ -69,7 +69,7 @@ func writeLogFile(cfg model.Config, message string, logger Logger) {
 	if cfg.LogFilePath == "" {
 		return
 	}
-	f, err := os.OpenFile(cfg.LogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(cfg.LogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		logger.Log(cfg, Error, "error opening log file: "+err.Error())
 		return

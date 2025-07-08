@@ -4,12 +4,14 @@ package helpers
 import (
 	"image/png"
 	"os"
+	"path/filepath"
 
 	"github.com/mohamedation/GoSorter/model"
 )
 
 // HasTransparency - maybe also set a size or resolution limit?
 func HasTransparency(filePath string, cfg model.Config, logger Logger) (bool, error) {
+	filePath = filepath.Clean(filePath)
 	file, err := os.Open(filePath)
 	if err != nil {
 		if logger != nil {

@@ -303,7 +303,7 @@ func TestFileProcessor_ZipFileHandling(t *testing.T) {
 		t.Fatalf("Failed to create test zip file: %v", err)
 	}
 
-	if err := os.Mkdir(extractedDirPath, 0755); err != nil {
+	if err := os.Mkdir(extractedDirPath, 0750); err != nil {
 		t.Fatalf("Failed to create extracted directory: %v", err)
 	}
 

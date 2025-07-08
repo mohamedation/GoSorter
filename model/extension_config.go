@@ -152,7 +152,7 @@ func loadUserExtensionConfig() (*ExtensionConfig, error) {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return nil, err
 	}
-
+	configPath = filepath.Clean(configPath)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
@@ -205,7 +205,9 @@ func SaveExtensionConfig(config *ExtensionConfig) error {
 	configDir := filepath.Join(homeDir, ".config", "GoSorter")
 	configPath := filepath.Join(configDir, "extension.json")
 
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	configPath = filepath.Clean(configPath)
+
+	if err := os.MkdirAll(configDir, 0750); err != nil {
 		return err
 	}
 
@@ -214,5 +216,5 @@ func SaveExtensionConfig(config *ExtensionConfig) error {
 		return err
 	}
 
-	return os.WriteFile(configPath, data, 0644)
+	return os.WriteFile(configPath, data, 0600)
 }

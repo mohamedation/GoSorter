@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/mohamedation/GoSorter/model"
 )
@@ -28,6 +29,7 @@ func HashFile(filePath string, maxBytes int64, cfg model.Config, logger Logger) 
 		}
 		return "", nil
 	}
+	filePath = filepath.Clean(filePath)
 	file, err := os.Open(filePath)
 	if err != nil {
 		if logger != nil {
@@ -66,6 +68,7 @@ func PartialHashFile(filePath string, numBytes int64, cfg model.Config, logger L
 	if logger != nil {
 		logger.Log(cfg, Debug, fmt.Sprintf("[DEBUG] Starting partial hash for file: %s (first %d bytes)", filePath, numBytes))
 	}
+	filePath = filepath.Clean(filePath)
 	file, err := os.Open(filePath)
 	if err != nil {
 		if logger != nil {
