@@ -1,0 +1,140 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for multiple platforms
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: darwin
+            goarch: amd64
+            suffix: macos-intel
+          - goos: darwin
+            goarch: arm64
+            suffix: macos-apple-silicon
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64
+            extension: .exe
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.23.4'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        BINARY_NAME=gosorter-${{ matrix.suffix }}${{ matrix.extension }}
+        go build -ldflags="-w -s -X main.Version=$VERSION" -o $BINARY_NAME .
+        echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+    - name: Create Release (first job only)
+      if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: GoSorter ${{ github.ref_name }}
+        body: |
+          ## GoSorter ${{ github.ref_name }}
+          
+          🚀 **High-performance file organizer with duplicate detection**
+          
+          ### Download for your platform:
+          - **Linux (x64)**: `gosorter-linux-amd64.tar.gz`
+          - **Linux (ARM64)**: `gosorter-linux-arm64.tar.gz`
+          - **macOS (Intel)**: `gosorter-macos-intel.tar.gz`
+          - **macOS (Apple Silicon)**: `gosorter-macos-apple-silicon.tar.gz`
+          - **Windows (x64)**: `gosorter-windows-amd64.zip`
+          
+          ### Quick Install:
+          ```bash
+          # Linux/macOS
+          tar -xzf gosorter-*.tar.gz
+          chmod +x gosorter-*
+          sudo mv gosorter-* /usr/local/bin/gosorter
+          
+          # Windows
+          # Extract gosorter-windows-amd64.zip and run gosorter.exe
+          ```
+          
+          ### Features:
+          - ✅ Fast file sorting by extension
+          - ✅ Duplicate detection using SHA-256
+          - ✅ Parallel processing with worker pools
+          - ✅ Custom configuration support
+          - ✅ Transparent PNG detection
+          - ✅ Archive handling
+          - ✅ Cross-platform support
+          - ✅ Unknown extensions tracking
+          
+          ### Usage:
+          ```bash
+          gosorter                    # Sort current directory
+          gosorter ~/Downloads        # Sort Downloads folder
+          gosorter -d -v ~/Documents  # Duplicate detection + verbose
+          gosorter -do ~/Pictures     # Only move duplicates
+          gosorter -h                 # Show help
+          ```
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create tarball (Unix)
+      if: matrix.goos != 'windows'
+      run: |
+        tar -czf gosorter-${{ matrix.suffix }}.tar.gz ${{ env.BINARY_NAME }} README.md LICENSE
+
+    - name: Create zip (Windows)
+      if: matrix.goos == 'windows'
+      run: |
+        zip gosorter-${{ matrix.suffix }}.zip ${{ env.BINARY_NAME }} README.md LICENSE
+
+    - name: Upload Release Assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          gosorter-${{ matrix.suffix }}.tar.gz
+          gosorter-${{ matrix.suffix }}.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

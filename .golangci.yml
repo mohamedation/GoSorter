@@ -1,0 +1,32 @@
+version: "2"
+run:
+  tests: true
+  relative-path-mode: cfg
+
+linters:
+  default: standard
+  enable:
+    - revive
+    - staticcheck
+
+  settings:
+    revive:
+      severity: warning
+    staticcheck:
+      checks: ["all"]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+  settings:
+    gofmt:
+      simplify: true
+
+output:
+  formats:
+    text:
+      colors: true
+      print-issued-lines: true
+      print-linter-name: true
