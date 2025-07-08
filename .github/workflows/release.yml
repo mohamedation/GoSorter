@@ -73,7 +73,8 @@ jobs:
       if: runner.os == 'Windows'
 
     - name: Run tests
-      run: go test -v ./...
+      run: go test -v -race -coverprofile=coverage.out ./...
+      shell: bash
 
     - name: Build binary
       env:
