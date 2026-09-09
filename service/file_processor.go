@@ -288,8 +288,12 @@ func (fp *FileProcessor) processFileGroups(folderPath string, fileDetails []mode
 			if file.Path == original.Path {
 				continue
 			}
-			helpers.MoveDuplicateFile(folderPath, file.Name, original.Path, *fp.config, fp.Logger)
-			fp.stats.IncrementDuplicatesMoved()
+			if err := helpers.MoveDuplicateFile(folderPath, file.Name, original.Path, *fp.config, fp.Logger); err != nil {
+				fp.stats.IncrementErrors()
+				fp.Logger.Log(*fp.config, helpers.Error, fmt.Sprintf("Failed to move duplicate file: %v\n", err))
+			} else {
+				fp.stats.IncrementDuplicatesMoved()
+			}
 		}
 
 		if fp.config.DuplicatesOnly {
@@ -328,10 +332,9 @@ func (fp *FileProcessor) moveFileToFolder(folderPath string, file model.FileDeta
 		dirName := strings.TrimSuffix(file.Name, file.Ext)
 		dirPath := filepath.Join(folderPath, dirName)
 		if helpers.FolderExists(dirPath) {
-			helpers.MoveExtractedArchive(folderPath, file.Name, *fp.config, fp.Logger)
-			return nil
+			return helpers.MoveExtractedArchive(folderPath, file.Name, *fp.config, fp.Logger)
 		}
-		helpers.MoveFileToTargetFolder(folderPath, file.Name, "Archives", *fp.config, fp.Logger)
+		return helpers.MoveFileToTargetFolder(folderPath, file.Name, "Archives", *fp.config, fp.Logger)
 	case ".png":
 		if fp.config.DetectTransparentPNGs {
 			hasTransparency, err := helpers.HasTransparency(file.Path, *fp.config, fp.Logger)
@@ -341,18 +344,18 @@ func (fp *FileProcessor) moveFileToFolder(folderPath string, file model.FileDeta
 				hasTransparency = false
 			}
 			if hasTransparency {
-				fp.stats.IncrementTransparentPNGsMoved()
 				fp.Logger.Log(*fp.config, helpers.Debug, fmt.Sprintf("PNG file %s has transparency, moving to %s\n", file.Name, config.TransparentPNGFolder))
-				helpers.MoveFileToTargetFolder(folderPath, file.Name, config.TransparentPNGFolder, *fp.config, fp.Logger)
-			} else {
-				fp.Logger.Log(*fp.config, helpers.Debug, fmt.Sprintf("PNG file %s has no transparency, moving to %s\n", file.Name, targetFolder))
-				helpers.MoveFileToTargetFolder(folderPath, file.Name, targetFolder, *fp.config, fp.Logger)
+				if err := helpers.MoveFileToTargetFolder(folderPath, file.Name, config.TransparentPNGFolder, *fp.config, fp.Logger); err != nil {
+					return err
+				}
+				fp.stats.IncrementTransparentPNGsMoved()
+				return nil
 			}
-		} else {
-			helpers.MoveFileToTargetFolder(folderPath, file.Name, targetFolder, *fp.config, fp.Logger)
+			fp.Logger.Log(*fp.config, helpers.Debug, fmt.Sprintf("PNG file %s has no transparency, moving to %s\n", file.Name, targetFolder))
+			return helpers.MoveFileToTargetFolder(folderPath, file.Name, targetFolder, *fp.config, fp.Logger)
 		}
+		return helpers.MoveFileToTargetFolder(folderPath, file.Name, targetFolder, *fp.config, fp.Logger)
 	default:
-		helpers.MoveFileToTargetFolder(folderPath, file.Name, targetFolder, *fp.config, fp.Logger)
+		return helpers.MoveFileToTargetFolder(folderPath, file.Name, targetFolder, *fp.config, fp.Logger)
 	}
-	return nil
 }

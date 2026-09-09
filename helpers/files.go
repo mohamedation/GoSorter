@@ -69,12 +69,12 @@ func FormatPath(path string, cfg model.Config) string {
 	return fmt.Sprintf("%s...%s%s", name[:3], name[len(name)-4:], ext)
 }
 
-func MoveDuplicateFile(folderPath, fileName, originalPath string, cfg model.Config, logger Logger) {
+func MoveDuplicateFile(folderPath, fileName, originalPath string, cfg model.Config, logger Logger) error {
 	duplicatesFolder := filepath.Join(folderPath, "Duplicates")
 	if !FolderExists(duplicatesFolder) {
 		if err := os.MkdirAll(duplicatesFolder, 0750); err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to create folder %s: %v\n", duplicatesFolder, err))
-			return
+			return err
 		}
 	}
 
@@ -86,18 +86,19 @@ func MoveDuplicateFile(folderPath, fileName, originalPath string, cfg model.Conf
 
 	if err := MoveFile(srcPath, duplicateDstPath, cfg, logger); err != nil {
 		logger.Log(cfg, Error, fmt.Sprintf("Failed to move duplicate file %s: %v\n", srcPath, err))
-		return
+		return err
 	}
 
 	logger.Log(cfg, Info, fmt.Sprintf("Moved duplicate: %s -> %s\n", FormatPath(srcPath, cfg), FormatPath(duplicateDstPath, cfg)))
+	return nil
 }
 
-func MoveExtractedArchive(folderPath, fileName string, cfg model.Config, logger Logger) {
+func MoveExtractedArchive(folderPath, fileName string, cfg model.Config, logger Logger) error {
 	extractedFolder := filepath.Join(folderPath, "Archives-Extracted")
 	if !FolderExists(extractedFolder) {
 		if err := os.MkdirAll(extractedFolder, 0750); err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to create folder %s: %v\n", extractedFolder, err))
-			return
+			return err
 		}
 	}
 
@@ -105,10 +106,11 @@ func MoveExtractedArchive(folderPath, fileName string, cfg model.Config, logger 
 	srcPath := filepath.Join(folderPath, fileName)
 	if err := MoveFile(srcPath, extractedDstPath, cfg, logger); err != nil {
 		logger.Log(cfg, Error, fmt.Sprintf("Failed to move archive %s: %v\n", srcPath, err))
-		return
+		return err
 	}
 
 	logger.Log(cfg, Info, fmt.Sprintf("Moved: %s -> %s\n", FormatPath(srcPath, cfg), FormatPath(extractedDstPath, cfg)))
+	return nil
 }
 
 func FileExists(path string) bool {
@@ -116,12 +118,12 @@ func FileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-func MoveFileToTargetFolder(folderPath, fileName, targetFolder string, cfg model.Config, logger Logger) {
+func MoveFileToTargetFolder(folderPath, fileName, targetFolder string, cfg model.Config, logger Logger) error {
 	targetPath := filepath.Join(folderPath, targetFolder)
 	if !FolderExists(targetPath) {
 		if err := os.MkdirAll(targetPath, 0750); err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to create folder %s: %v\n", targetPath, err))
-			return
+			return err
 		}
 	}
 
@@ -139,40 +141,41 @@ func MoveFileToTargetFolder(folderPath, fileName, targetFolder string, cfg model
 		srcHash, err := HashFile(srcPath, maxBytes, cfg, logger)
 		if err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to hash source file %s: %v\n", srcPath, err))
-			return
+			return err
 		}
 		logger.Log(cfg, Debug, fmt.Sprintf("Hashing destination file: %s\n", FormatPath(dstPath, cfg)))
 		dstHash, err := HashFile(dstPath, maxBytes, cfg, logger)
 		if err != nil {
 			logger.Log(cfg, Error, fmt.Sprintf("Failed to hash destination file %s: %v\n", dstPath, err))
-			return
+			return err
 		}
-		if srcHash != dstHash {
-			ext := filepath.Ext(fileName)
-			name := strings.TrimSuffix(fileName, ext)
-			i := 1
-			for {
-				newName := fmt.Sprintf("%s(%d)%s", name, i, ext)
-				newDstPath := filepath.Join(targetPath, newName)
-				if !FileExists(newDstPath) {
-					dstPath = newDstPath
-					break
-				}
-				i++
+		if srcHash != "" && srcHash == dstHash {
+			if err := os.Remove(srcPath); err != nil {
+				logger.Log(cfg, Error, fmt.Sprintf("Failed to remove duplicate file %s: %v\n", srcPath, err))
+				return err
 			}
-			logger.Log(cfg, Debug, fmt.Sprintf("File conflict: %s exists, renaming to %s\n", FormatPath(dstPath, cfg), FormatPath(dstPath, cfg)))
-		} else {
-			if err := os.Remove(dstPath); err != nil {
-				logger.Log(cfg, Error, fmt.Sprintf("Failed to overwrite file %s: %v\n", dstPath, err))
-				return
-			}
-			logger.Log(cfg, Debug, fmt.Sprintf("Overwriting file: %s\n", FormatPath(dstPath, cfg)))
+			logger.Log(cfg, Info, fmt.Sprintf("Removed duplicate: %s (identical to %s)\n", FormatPath(srcPath, cfg), FormatPath(dstPath, cfg)))
+			return nil
 		}
+		ext := filepath.Ext(fileName)
+		name := strings.TrimSuffix(fileName, ext)
+		i := 1
+		for {
+			newName := fmt.Sprintf("%s(%d)%s", name, i, ext)
+			newDstPath := filepath.Join(targetPath, newName)
+			if !FileExists(newDstPath) {
+				dstPath = newDstPath
+				break
+			}
+			i++
+		}
+		logger.Log(cfg, Debug, fmt.Sprintf("File conflict: %s exists, renaming to %s\n", FormatPath(dstPath, cfg), FormatPath(dstPath, cfg)))
 	}
 
 	if err := MoveFile(srcPath, dstPath, cfg, logger); err != nil {
 		logger.Log(cfg, Error, fmt.Sprintf("Failed to move file %s: %v\n", srcPath, err))
-		return
+		return err
 	}
 	logger.Log(cfg, Info, fmt.Sprintf("Moved: %s -> %s\n", FormatPath(srcPath, cfg), FormatPath(dstPath, cfg)))
+	return nil
 }

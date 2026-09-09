@@ -54,16 +54,13 @@ func NewFileMover(fileOps FileOperations, config *model.Config) *FileMover {
 }
 
 func (fm *FileMover) MoveToTargetFolder(folderPath, fileName, targetFolder string) error {
-	MoveFileToTargetFolder(folderPath, fileName, targetFolder, *fm.config, &CLILogger{})
-	return nil
+	return MoveFileToTargetFolder(folderPath, fileName, targetFolder, *fm.config, &CLILogger{})
 }
 
 func (fm *FileMover) MoveToDuplicates(folderPath, fileName, originalPath string) error {
-	MoveDuplicateFile(folderPath, fileName, originalPath, *fm.config, &CLILogger{})
-	return nil
+	return MoveDuplicateFile(folderPath, fileName, originalPath, *fm.config, &CLILogger{})
 }
 
 func (fm *FileMover) MoveExtractedArchive(folderPath, fileName string) error {
-	MoveExtractedArchive(folderPath, fileName, *fm.config, &CLILogger{})
-	return nil
+	return MoveExtractedArchive(folderPath, fileName, *fm.config, &CLILogger{})
 }

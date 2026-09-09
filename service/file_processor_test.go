@@ -326,3 +326,109 @@ func TestFileProcessor_ZipFileHandling(t *testing.T) {
 		t.Error("Expected at least one file to be processed")
 	}
 }
+
+func TestFileProcessor_FailedMoveNotCountedAsSuccess(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "gosorter_test_failed_move")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Fatalf("Failed to remove temp dir: %v", err)
+		}
+	}()
+
+	// a file named Documents blocks the target folder, so the move must fail
+	documentsPath := filepath.Join(tempDir, "Documents")
+	if err := os.WriteFile(documentsPath, []byte("not a folder"), 0644); err != nil {
+		t.Fatalf("Failed to create blocking file: %v", err)
+	}
+	notePath := filepath.Join(tempDir, "note.txt")
+	if err := os.WriteFile(notePath, []byte("hello"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	config := &model.Config{
+		MoveDuplicates: false,
+		Verbose:        false,
+		Silent:         true,
+	}
+	stats := &model.Stats{StartTime: time.Now()}
+
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
+	ctx := context.Background()
+
+	err = processor.ProcessDirectory(ctx, tempDir)
+	if err != nil {
+		t.Errorf("ProcessDirectory failed: %v", err)
+	}
+
+	if stats.GetFilesMoved() != 0 {
+		t.Errorf("Expected 0 files moved on failure, got %d", stats.GetFilesMoved())
+	}
+	if stats.GetErrorsCount() == 0 {
+		t.Error("Expected failed move to increment error count")
+	}
+	if _, err := os.Stat(notePath); err != nil {
+		t.Errorf("Source file should still exist after failed move: %v", err)
+	}
+}
+
+func TestFileProcessor_IdenticalContentKeepsDestination(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "gosorter_test_identical")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Fatalf("Failed to remove temp dir: %v", err)
+		}
+	}()
+
+	content := []byte("identical content")
+	picturesDir := filepath.Join(tempDir, "Pictures")
+	if err := os.Mkdir(picturesDir, 0750); err != nil {
+		t.Fatalf("Failed to create Pictures folder: %v", err)
+	}
+
+	dstPath := filepath.Join(picturesDir, "photo.jpg")
+	srcPath := filepath.Join(tempDir, "photo.jpg")
+	if err := os.WriteFile(dstPath, content, 0644); err != nil {
+		t.Fatalf("Failed to create destination file: %v", err)
+	}
+	if err := os.WriteFile(srcPath, content, 0644); err != nil {
+		t.Fatalf("Failed to create source file: %v", err)
+	}
+
+	oldTime := time.Now().Add(-24 * time.Hour)
+	if err := os.Chtimes(dstPath, oldTime, oldTime); err != nil {
+		t.Fatalf("Failed to set destination mtime: %v", err)
+	}
+
+	config := &model.Config{
+		MoveDuplicates: false,
+		Verbose:        false,
+		Silent:         true,
+	}
+	stats := &model.Stats{StartTime: time.Now()}
+
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
+	ctx := context.Background()
+
+	err = processor.ProcessDirectory(ctx, tempDir)
+	if err != nil {
+		t.Errorf("ProcessDirectory failed: %v", err)
+	}
+
+	if _, err := os.Stat(srcPath); !os.IsNotExist(err) {
+		t.Error("Expected source file to be removed as a duplicate of the destination")
+	}
+
+	info, err := os.Stat(dstPath)
+	if err != nil {
+		t.Fatalf("Destination file should still exist: %v", err)
+	}
+	if !info.ModTime().Before(stats.StartTime) {
+		t.Error("Destination file should have been kept, not replaced")
+	}
+}

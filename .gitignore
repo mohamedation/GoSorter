@@ -57,6 +57,9 @@ scripts/
 config.json
 extension.json
 
+# Local review notes (not part of the project)
+todo.md
+
 # Temporary files
 tmp/
 temp/
