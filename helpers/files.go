@@ -68,6 +68,9 @@ func shouldCopyFallback(err error) bool {
 // copyFileThenRemove copies src to dst via a temp file, syncs, preserves mode
 // and mtime, then removes src. Final dst is only replaced after a durable copy.
 func copyFileThenRemove(src, dst string, cfg model.Config, logger Logger) error {
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+
 	srcInfo, err := os.Stat(src)
 	if err != nil {
 		return err
