@@ -27,6 +27,11 @@ I am also working on a GUI for it GuiSorter.
 go install github.com/mohamedation/GoSorter@latest
 ```
 
+just make sure your Go bin directory is added to your PATH
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
 Or build from source:
 
 ```bash
@@ -121,15 +126,16 @@ make uninstall
 The program organizes files into the following folders:
 
 ### Images
-- **Pictures**: `.jpg`, `.jpeg`, `.png` (non-transparent), `.bmp`, `.heic`, `.heif`, `.tiff`, `.tif`
+- **Pictures**: `.jpg`, `.jpeg`, `.png` (non-transparent), `.bmp`, `.heic`, `.heif`, `.tiff`, `.tif`, `.avif`
 - **PNGs**: `.png` (with transparency)
 - **GIFs**: `.gif`
 - **SVGs**: `.svg`
 - **WebP**: `.webp`
 - **RawImages**: `.raw`
+- **Icons**: `.ico`
 
 ### Media
-- **Videos**: `.mp4`, `.mkv`, `.avi`, `.mpg`, `.mpeg`, `.webm`
+- **Videos**: `.mp4`, `.mkv`, `.avi`, `.mpg`, `.mpeg`, `.webm`, `.mov` 
 - **Music**: `.mp3`, `.wav`, `.flac`, `.aac`, `.ogg`, `.m4a`, `.wma`, `.opus`, `.m4b`, `.m4p`
 
 ### Documents & Office
@@ -137,11 +143,14 @@ The program organizes files into the following folders:
 - **PDFs**: `.pdf`
 - **Presentations**: `.ppt`, `.pptx`, `.odp`
 - **Sheets**: `.csv`, `.xls`, `.xlsx`, `.ods`
+- **Markdown**: `.md`
 
 ### Design & Creative
 - **Photoshop**: `.psd`
 - **Illustrator**: `.ai`
 - **InDesign**: `.indd`
+- **Affinity**: `.af`
+- **Fonts**: `.otf`, `.ttf`, `.woff`, `.woff2`, 
 
 ### Archives & System
 - **Archives**: `.zip`, `.rar`, `.tar`, `.gz`

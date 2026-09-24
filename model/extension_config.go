@@ -17,6 +17,8 @@ type ExtensionConfig struct {
 func DefaultExtensionConfig() *ExtensionConfig {
 	return &ExtensionConfig{
 		ExtensionToFolder: map[string]string{
+			// Affinity source files
+			".af": "Affinity",
 			// Archives
 			".zip": "Archives",
 			".rar": "Archives",
@@ -46,8 +48,12 @@ func DefaultExtensionConfig() *ExtensionConfig {
 			".odt":  "Documents",
 			".txt":  "Documents",
 
+			// Markdown
+			".md": "Markdown",
+
 			// Development
-			".py": "Development",
+			".py":   "Development",
+			".html": "HTML",
 
 			// Ebooks
 			".mobi": "Ebooks",
@@ -59,8 +65,15 @@ func DefaultExtensionConfig() *ExtensionConfig {
 			".exe": "Executables",
 			".deb": "Packages",
 
+			// Fonts
+			".otf":   "Fonts",
+			".ttf":   "Fonts",
+			".woff":  "Fonts",
+			".woff2": "Fonts",
+
 			// Images
 			".bmp":  "Pictures",
+			".avif": "Pictures",
 			".gif":  "GIFs",
 			".heic": "Pictures",
 			".heif": "Pictures",
@@ -72,6 +85,7 @@ func DefaultExtensionConfig() *ExtensionConfig {
 			".tiff": "Pictures",
 			".tif":  "Pictures",
 			".webp": "WebP",
+			".ico":  "Icons",
 
 			// Presentations
 			".odp":  "Presentations",
@@ -102,6 +116,7 @@ func DefaultExtensionConfig() *ExtensionConfig {
 			".mpg":  "Videos",
 			".mpeg": "Videos",
 			".webm": "Videos",
+			".mov":  "Videos",
 
 			// Virtual Machines
 			".ova": "VirtualMachines",
