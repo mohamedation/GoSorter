@@ -3,6 +3,7 @@ package model
 
 import (
 	"os"
+	"runtime"
 	"testing"
 )
 
@@ -62,8 +63,17 @@ func TestGetTargetFolder(t *testing.T) {
 	}
 }
 
+// setTestHome points os.UserHomeDir at dir for this test (HOME on Unix, USERPROFILE on Windows).
+func setTestHome(t *testing.T, dir string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+		return
+	}
+	t.Setenv("HOME", dir)
+}
+
 func TestLoadExtensionConfig_NoUserConfig(t *testing.T) {
-	// temp
 	tempDir, err := os.MkdirTemp("", "gosorter_config_test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
@@ -74,16 +84,7 @@ func TestLoadExtensionConfig_NoUserConfig(t *testing.T) {
 		}
 	}()
 
-	// temp change to temp to test if user already has a config file
-	originalHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tempDir); err != nil {
-		t.Fatalf("Failed to set HOME: %v", err)
-	}
-	defer func() {
-		if err := os.Setenv("HOME", originalHome); err != nil {
-			t.Fatalf("Failed to restore HOME: %v", err)
-		}
-	}()
+	setTestHome(t, tempDir)
 
 	config := LoadExtensionConfig()
 
@@ -103,15 +104,7 @@ func TestSaveAndLoadExtensionConfig(t *testing.T) {
 		}
 	}()
 
-	originalHome := os.Getenv("HOME")
-	if err := os.Setenv("HOME", tempDir); err != nil {
-		t.Fatalf("Failed to set HOME: %v", err)
-	}
-	defer func() {
-		if err := os.Setenv("HOME", originalHome); err != nil {
-			t.Fatalf("Failed to restore HOME: %v", err)
-		}
-	}()
+	setTestHome(t, tempDir)
 
 	customConfig := &ExtensionConfig{
 		ExtensionToFolder: map[string]string{

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 
@@ -74,7 +75,8 @@ func TestCopyFileThenRemove_SuccessPreservesContentAndMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to stat dest: %v", err)
 	}
-	if info.Mode().Perm() != 0600 {
+	// Windows does not preserve Unix permission bits the same way
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
 		t.Errorf("Expected mode 0600, got %v", info.Mode().Perm())
 	}
 }
