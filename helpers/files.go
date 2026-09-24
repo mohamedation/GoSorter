@@ -2,11 +2,13 @@
 package helpers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/mohamedation/GoSorter/model"
 )
@@ -16,13 +18,61 @@ func FolderExists(folderPath string) bool {
 	return !os.IsNotExist(err)
 }
 
+// MoveFile moves src to dst. Tries rename first; on cross-device (or other
+// rename failure that needs a copy), copies via a temp file in dst's directory
+// so a failed copy never truncates an existing destination.
 func MoveFile(src, dst string, cfg model.Config, logger Logger) error {
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+
 	if err := os.Rename(src, dst); err == nil {
 		return nil
-	} else if !os.IsExist(err) && !os.IsPermission(err) {
+	} else if !shouldCopyFallback(err) {
+		return err
+	} else {
+		logger.Log(cfg, Debug, fmt.Sprintf("Rename failed (%v), falling back to copy: %s -> %s\n", err, FormatPath(src, cfg), FormatPath(dst, cfg)))
+	}
+
+	return copyFileThenRemove(src, dst, cfg, logger)
+}
+
+// shouldCopyFallback reports whether a rename error should be handled by
+// copy-then-remove (cross-device, Windows not-same-volume, exist/permission quirks).
+func shouldCopyFallback(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, syscall.EXDEV) {
+		return true
+	}
+	// Windows ERROR_NOT_SAME_DEVICE
+	var errno syscall.Errno
+	if errors.As(err, &errno) && errno == 17 {
+		return true
+	}
+	var linkErr *os.LinkError
+	if errors.As(err, &linkErr) {
+		return shouldCopyFallback(linkErr.Err)
+	}
+	var pathErr *os.PathError
+	if errors.As(err, &pathErr) {
+		return shouldCopyFallback(pathErr.Err)
+	}
+	// keep previous fallback triggers (e.g. Windows dest-exists rename behavior)
+	if os.IsExist(err) || os.IsPermission(err) {
+		return true
+	}
+	return false
+}
+
+// copyFileThenRemove copies src to dst via a temp file, syncs, preserves mode
+// and mtime, then removes src. Final dst is only replaced after a durable copy.
+func copyFileThenRemove(src, dst string, cfg model.Config, logger Logger) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
 		return err
 	}
-	src = filepath.Clean(src)
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return err
@@ -32,19 +82,47 @@ func MoveFile(src, dst string, cfg model.Config, logger Logger) error {
 			logger.Log(cfg, Error, fmt.Sprintf("error closing srcFile: %v", err))
 		}
 	}()
-	dst = filepath.Clean(dst)
-	dstFile, err := os.Create(dst)
+
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".gosorter-*")
 	if err != nil {
 		return err
 	}
+	tmpName := tmp.Name()
+	closed := false
+	renamed := false
 	defer func() {
-		if err := dstFile.Close(); err != nil {
-			logger.Log(cfg, Error, fmt.Sprintf("error closing dstFile: %v", err))
+		if !closed {
+			_ = tmp.Close()
+		}
+		if !renamed {
+			_ = os.Remove(tmpName)
 		}
 	}()
 
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
+	if _, err := io.Copy(tmp, srcFile); err != nil {
 		return err
+	}
+	if err := tmp.Sync(); err != nil {
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	closed = true
+
+	// preserve permissions from source before publishing as dst
+	if err := os.Chmod(tmpName, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	if err := os.Rename(tmpName, dst); err != nil {
+		return err
+	}
+	renamed = true
+
+	// mtime is best-effort; xattrs are not preserved
+	if err := os.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime()); err != nil {
+		logger.Log(cfg, Debug, fmt.Sprintf("could not preserve mtime for %s: %v\n", FormatPath(dst, cfg), err))
 	}
 
 	return os.Remove(src)
