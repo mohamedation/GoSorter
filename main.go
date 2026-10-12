@@ -20,28 +20,35 @@ const (
 )
 
 func main() {
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(args []string) int {
 	stats := &model.Stats{StartTime: time.Now()}
 	var cfg model.Config
 
-	logToFile := flag.Bool("l", false, "Enable logging to a file in the current directory")
-	showHelp := flag.Bool("h", false, "Show help message")
+	fs := flag.NewFlagSet("gosorter", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
 
-	// arguments
-	flag.BoolVar(&cfg.MoveDuplicates, "d", false, "Move duplicate files to the Duplicates folder")
-	flag.BoolVar(&cfg.DuplicatesOnly, "do", false, "Only detect and move duplicates, no sorting")
-	flag.BoolVar(&cfg.Verbose, "v", false, "Enable verbose output")
-	flag.BoolVar(&cfg.Silent, "s", false, "silent output")
-	flag.BoolVar(&cfg.DetectTransparentPNGs, "t", false, "Check transparent PNGs (slower, but sorts PNGs with transparent backgrounds into PNGs folder)")
+	logToFile := fs.Bool("l", false, "Enable logging to a file in the current directory")
+	showHelp := fs.Bool("h", false, "Show help message")
 
-	// max hash file size (2048M or 2G)
+	fs.BoolVar(&cfg.MoveDuplicates, "d", false, "Move duplicate files to the Duplicates folder")
+	fs.BoolVar(&cfg.DuplicatesOnly, "do", false, "Only detect and move duplicates, no sorting")
+	fs.BoolVar(&cfg.Verbose, "v", false, "Enable verbose output")
+	fs.BoolVar(&cfg.Silent, "s", false, "silent output")
+	fs.BoolVar(&cfg.DetectTransparentPNGs, "t", false, "Check transparent PNGs (slower, but sorts PNGs with transparent backgrounds into PNGs folder)")
+
 	var maxHashSizeStr string
-	flag.StringVar(&maxHashSizeStr, "S", "1024M", "Maximum file size to hash for duplicate detection (e.g. 1024M, 2G). Only used with -d or -do.")
+	fs.StringVar(&maxHashSizeStr, "S", "1024M", "Maximum file size to hash for duplicate detection (e.g. 1024M, 2G). Only used with -d or -do.")
 
-	flag.Usage = func() {
+	fs.Usage = func() {
 		printHelp()
 	}
 
-	flag.Parse()
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
 
 	if cfg.DuplicatesOnly {
 		cfg.MoveDuplicates = true
@@ -49,7 +56,7 @@ func main() {
 
 	if *showHelp {
 		printHelp()
-		os.Exit(0)
+		return 0
 	}
 
 	if *logToFile {
@@ -57,14 +64,12 @@ func main() {
 		cfg.LogFilePath = fmt.Sprintf("gosorter-%s.log", timestamp)
 	}
 
-	// check configuration
 	if err := cfg.Validate(); err != nil {
 		logger := &helpers.CLILogger{}
 		logger.Log(cfg, helpers.Error, fmt.Sprintf("Configuration error: %v\n", err))
-		os.Exit(1)
+		return 1
 	}
 
-	// max hash size
 	cfg.MaxHashFileSizeMB = 1024 // default 1GB
 	if maxHashSizeStr != "" {
 		var sizeMB int64
@@ -84,16 +89,14 @@ func main() {
 		}
 	}
 
-	// allow -S if -d or -do is set..maybe for the feature ignore it?
 	if cfg.MaxHashFileSizeMB != 1024 && !cfg.MoveDuplicates && !cfg.DuplicatesOnly {
 		fmt.Fprintf(os.Stderr, "-S is only used with -d or -do (duplicate detection modes)\n")
 		cfg.MaxHashFileSizeMB = 1024
 	}
 
-	// directory path
 	folderPath := "."
-	if len(flag.Args()) > 0 {
-		folderPath = flag.Arg(0)
+	if len(fs.Args()) > 0 {
+		folderPath = fs.Arg(0)
 	}
 
 	processor := service.NewFileProcessor(&cfg, stats, &helpers.CLILogger{})
@@ -101,15 +104,14 @@ func main() {
 	ctx := context.Background()
 	if err := processor.ProcessDirectory(ctx, folderPath); err != nil {
 		fmt.Printf("Error processing directory: %v\n", err)
-		os.Exit(1)
+		return 1
 	}
 
-	// statistics
 	printStats(cfg, stats)
+	return 0
 }
 
 func printStats(cfg model.Config, stats *model.Stats) {
-	// no stats
 	if !cfg.Verbose && cfg.LogFilePath == "" {
 		return
 	}
@@ -117,7 +119,6 @@ func printStats(cfg model.Config, stats *model.Stats) {
 	stats.EndTime = time.Now()
 	stats.TimeElapsed = stats.EndTime.Sub(stats.StartTime)
 
-	// needs some work
 	statsContent := "\n====================[ GoSorter Stats ]====================\n"
 	statsContent += fmt.Sprintf("%-25s %s\n", "Started at:", stats.StartTime.Format(time.RFC1123))
 	statsContent += fmt.Sprintf("%-25s %s\n", "Finished at:", stats.EndTime.Format(time.RFC1123))
@@ -139,7 +140,6 @@ func printStats(cfg model.Config, stats *model.Stats) {
 	}
 	statsContent += "============================================================"
 
-	// unknown extensions
 	if stats.GetUnknownExtensions() > 0 {
 		statsContent += "\n\n=================[ Unknown Extensions ]===================\n"
 		unknownExtMap := stats.GetUnknownExtMap()
@@ -156,7 +156,6 @@ func printStats(cfg model.Config, stats *model.Stats) {
 		statsContent += configPath
 	}
 
-	// verbose
 	if cfg.Verbose {
 		fmt.Print(statsContent)
 	}
@@ -173,7 +172,7 @@ func printHelp() {
 	progName := filepath.Base(os.Args[0])
 
 	logger := helpers.CLILogger{}
-	cfg := model.Config{} // config
+	cfg := model.Config{}
 	logger.Log(cfg, helpers.Normal, fmt.Sprintf("  GoSorter v%s\n", Version))
 	logger.Log(cfg, helpers.Normal, fmt.Sprintf("  Created by: %s\n", Author))
 	logger.Log(cfg, helpers.Normal, fmt.Sprintf("  Website: %s\n", Website))
@@ -188,6 +187,7 @@ func printHelp() {
 		{"-s", "Enable silent output"},
 		{"-l", "Enable logging to a file in the current directory"},
 		{"-t", "Check transparent PNGs (slower, but sorts PNGs with transparent backgrounds)"},
+		{"-S", "Maximum file size to hash for duplicate detection (e.g. 1024M, 2G)"},
 	}
 	for _, opt := range options {
 		logger.Log(cfg, helpers.Normal, fmt.Sprintf("  %-4s %s\n", opt.flag, opt.desc))

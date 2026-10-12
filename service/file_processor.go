@@ -129,13 +129,15 @@ func (fp *FileProcessor) processFilesWithDuplicates(ctx context.Context, folderP
 			if len(pGroup) == 1 {
 				entry := pGroup[0]
 				filePath := filepath.Join(folderPath, entry.Name())
+				uniqueHash := "size-partial-" + fmt.Sprint(size) + "-" + pHash
 				detail := model.FileDetail{
 					Name: entry.Name(),
 					Path: filePath,
+					Hash: uniqueHash,
 					Ext:  strings.ToLower(filepath.Ext(entry.Name())),
 				}
 				fileDetails = append(fileDetails, detail)
-				fileHashes["size-partial-"+fmt.Sprint(size)+"-"+pHash] = append(fileHashes["size-partial-"+fmt.Sprint(size)+"-"+pHash], detail)
+				fileHashes[uniqueHash] = append(fileHashes[uniqueHash], detail)
 				fp.stats.IncrementTotalFiles()
 				continue
 			}

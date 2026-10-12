@@ -1,6 +1,16 @@
+<div align="center">
+
 # GoSorter
 
-A high-performance command-line file organizer written in Go that sorts files into folders based on their extensions.
+**Command-line file organizer that sorts files into folders by extension, with optional duplicate detection.**
+
+[![Go Version](https://img.shields.io/badge/go-1.26+-00ADD8?logo=go)](https://go.dev)
+[![Go Reference](https://pkg.go.dev/badge/github.com/mohamedation/GoSorter.svg)](https://pkg.go.dev/github.com/mohamedation/GoSorter)
+[![Test](https://github.com/mohamedation/GoSorter/actions/workflows/test.yml/badge.svg)](https://github.com/mohamedation/GoSorter/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/mohamedation/GoSorter/branch/main/graph/badge.svg)](https://codecov.io/gh/mohamedation/GoSorter)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
+</div>
 
 ## Features
 
@@ -32,44 +42,22 @@ just make sure your Go bin directory is added to your PATH
 export PATH="$PATH:$(go env GOPATH)/bin"
 ```
 
-Or build from source:
+### Build from source
 
 ```bash
 git clone https://github.com/mohamedation/GoSorter.git
 cd GoSorter
-go build -o gosorter
+make build        # compiles to ./bin/gosorter
+make install      # installs to /usr/local/bin
+make uninstall    # removes it
+make clean        # removes ./bin
 ```
 
-## Using Make
-
-Alternatively, you can use `make` to build the project:
+### Tests
 
 ```bash
-# Build the application locally
-make build
-
-# Run from current directory
-./gosorter
-```
-This will compile the binary and place it in the current directory.
-
-### System Install (Available Globally)
-```bash
-# Clone the repository
-git clone https://github.com/mohamedation/GoSorter.git
-cd GoSorter
-
-# Install system-wide (requires sudo)
-make install
-
-# Now you can use gosorter from anywhere
-gosorter /path/to/directory
-```
-
-### Uninstall
-```bash
-# Remove from system
-make uninstall
+make test    # run unit tests
+make cover   # run tests with coverage summary
 ```
 
 
@@ -241,71 +229,28 @@ err := processor.ProcessDirectory(context.Background(), "/path/to/directory")
 
 ## Development
 
-If you find this project interesting, you are welcome to contribute, test, or use it in your own projects. I would appreciate it if you shared your awesome projects with me! I am striving to make GoSorter user-friendly and to follow best practices (from my point of view and understanding). If something doesn’t work, please let me know and I will work on fixing it.
-
-
-### Building
-
 ```bash
-# Format code
-make fmt
-
-# Run linting
-make vet
-
-# Run tests
-make test
-
-# Run tests with coverage
-make coverage
-
-# Build locally (development)
-make build
-
-# Build with quality checks
-make build-local
-
-# Install system-wide
-make install
-
-# Build for production with optimizations
-make release
-
-# Build for all platforms (local)
-make release-all
-
-# Cross-compile for specific platforms
-make build-linux
-make build-macos
-make build-windows
+make test    # run unit tests
+make cover   # run tests with coverage summary
+make fmt vet
+make release-all   # cross-compile release archives
 ```
 
-### Testing
-
-```bash
-# Run all tests
-go test ./...
-
-# Run tests with verbose output
-go test -v ./...
-
-# Run tests with coverage
-go test -cover ./...
-```
+Docs: [pkg.go.dev](https://pkg.go.dev/github.com/mohamedation/GoSorter) · Coverage: [Codecov](https://codecov.io/gh/mohamedation/GoSorter)
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Add tests for new functionality
-4. Ensure all tests pass
+4. Ensure all tests pass (`make cover`)
 5. Submit a pull request
 
 ## Platform Compatibility
 
-- **Tested on**: macOS Intel, Linux (Ubuntu/Debian and also Arch)
-- **Expected to work**: Windows, macOS Apple Silicon (tests to be preformed, You are welcome to test)
-- **Go Version**: 1.23.4+ (Probably works with previous versions as well)
+- **Tested on**: macOS Intel, Linux (Ubuntu/Debian and Arch)
+- **Expected to work**: Windows, macOS Apple Silicon
+- **Go Version**: 1.26+
 
 ## Disclaimer
 
