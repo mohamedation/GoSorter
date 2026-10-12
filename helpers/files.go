@@ -80,9 +80,12 @@ func copyFileThenRemove(src, dst string, cfg model.Config, logger Logger) error 
 	if err != nil {
 		return err
 	}
+	srcClosed := false
 	defer func() {
-		if err := srcFile.Close(); err != nil {
-			logger.Log(cfg, Error, fmt.Sprintf("error closing srcFile: %v", err))
+		if !srcClosed {
+			if err := srcFile.Close(); err != nil {
+				logger.Log(cfg, Error, fmt.Sprintf("error closing srcFile: %v", err))
+			}
 		}
 	}()
 
@@ -105,6 +108,12 @@ func copyFileThenRemove(src, dst string, cfg model.Config, logger Logger) error 
 	if _, err := io.Copy(tmp, srcFile); err != nil {
 		return err
 	}
+	// Close source before Remove — Windows cannot delete an open file.
+	if err := srcFile.Close(); err != nil {
+		return err
+	}
+	srcClosed = true
+
 	if err := tmp.Sync(); err != nil {
 		return err
 	}
