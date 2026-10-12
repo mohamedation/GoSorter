@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -137,5 +138,138 @@ func TestShouldCopyFallback_EXDEV(t *testing.T) {
 	}
 	if !shouldCopyFallback(os.ErrExist) {
 		t.Error("Expected ErrExist to trigger copy fallback")
+	}
+}
+
+func TestFolderExistsAndFileExists(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "a.txt")
+	if err := os.WriteFile(file, []byte("x"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if !FolderExists(dir) {
+		t.Fatal("FolderExists should be true for directory")
+	}
+	if FolderExists(filepath.Join(dir, "missing")) {
+		t.Fatal("FolderExists should be false for missing path")
+	}
+	if !FileExists(file) {
+		t.Fatal("FileExists should be true for file")
+	}
+	if FileExists(dir) {
+		t.Fatal("FileExists should be false for directory")
+	}
+	if FileExists(filepath.Join(dir, "missing.txt")) {
+		t.Fatal("FileExists should be false for missing file")
+	}
+}
+
+func TestFormatPath(t *testing.T) {
+	verbose := model.Config{Verbose: true}
+	if got := FormatPath("photo.jpg", verbose); got != "photo.jpg" {
+		t.Fatalf("verbose short = %q", got)
+	}
+	if got := FormatPath(filepath.Join("dir", "photo.jpg"), verbose); got != filepath.Join("dir", "photo.jpg") {
+		t.Fatalf("verbose with dir = %q", got)
+	}
+
+	short := FormatPath("shortname.jpg", model.Config{})
+	if short != "shortname.jpg" {
+		t.Fatalf("short name = %q", short)
+	}
+
+	longName := strings.Repeat("a", 40) + ".jpg"
+	got := FormatPath(longName, model.Config{})
+	if !strings.Contains(got, "...") || !strings.HasSuffix(got, ".jpg") {
+		t.Fatalf("expected truncated name, got %q", got)
+	}
+}
+
+func TestMoveDuplicateFileAndExtractedArchive(t *testing.T) {
+	dir := t.TempDir()
+	cfg := model.Config{Silent: true}
+	logger := &CLILogger{}
+
+	if err := os.WriteFile(filepath.Join(dir, "copy.txt"), []byte("dup"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := MoveDuplicateFile(dir, "copy.txt", filepath.Join(dir, "orig.txt"), cfg, logger); err != nil {
+		t.Fatalf("MoveDuplicateFile: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "Duplicates"))
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("expected one duplicate file, err=%v entries=%v", err, entries)
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "pack.zip"), []byte("zip"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := MoveExtractedArchive(dir, "pack.zip", cfg, logger); err != nil {
+		t.Fatalf("MoveExtractedArchive: %v", err)
+	}
+	if !FileExists(filepath.Join(dir, "Archives-Extracted", "pack.zip")) {
+		t.Fatal("expected archive in Archives-Extracted")
+	}
+}
+
+func TestMoveFileToTargetFolder_NewAndConflict(t *testing.T) {
+	dir := t.TempDir()
+	cfg := model.Config{Silent: true, MaxHashFileSizeMB: 1}
+	logger := &CLILogger{}
+
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("one"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := MoveFileToTargetFolder(dir, "a.txt", "Documents", cfg, logger); err != nil {
+		t.Fatalf("move: %v", err)
+	}
+	if !FileExists(filepath.Join(dir, "Documents", "a.txt")) {
+		t.Fatal("expected a.txt in Documents")
+	}
+
+	// different content conflict -> rename with (n)
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("two"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := MoveFileToTargetFolder(dir, "a.txt", "Documents", cfg, logger); err != nil {
+		t.Fatalf("conflict move: %v", err)
+	}
+	if !FileExists(filepath.Join(dir, "Documents", "a(1).txt")) {
+		t.Fatal("expected renamed conflict file a(1).txt")
+	}
+
+	// identical content -> remove source
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("one"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := MoveFileToTargetFolder(dir, "a.txt", "Documents", cfg, logger); err != nil {
+		t.Fatalf("identical move: %v", err)
+	}
+	if FileExists(filepath.Join(dir, "a.txt")) {
+		t.Fatal("identical source should be removed")
+	}
+}
+
+func TestShouldCopyFallback_MoreCases(t *testing.T) {
+	if shouldCopyFallback(nil) {
+		t.Fatal("nil should not fallback")
+	}
+	if !shouldCopyFallback(&os.PathError{Err: syscall.EXDEV}) {
+		t.Fatal("PathError(EXDEV) should fallback")
+	}
+	if !shouldCopyFallback(os.ErrPermission) {
+		t.Fatal("permission should fallback")
+	}
+	if shouldCopyFallback(syscall.ENOENT) {
+		t.Fatal("ENOENT should not fallback")
+	}
+}
+
+func TestCopyFileThenRemove_MissingSource(t *testing.T) {
+	dir := t.TempDir()
+	err := copyFileThenRemove(filepath.Join(dir, "missing"), filepath.Join(dir, "dst"), model.Config{Silent: true}, &CLILogger{})
+	if err == nil {
+		t.Fatal("expected error for missing source")
 	}
 }

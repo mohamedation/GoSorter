@@ -3,6 +3,9 @@ package service
 
 import (
 	"context"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +14,28 @@ import (
 	"github.com/mohamedation/GoSorter/helpers"
 	"github.com/mohamedation/GoSorter/model"
 )
+
+func writePNG(t *testing.T, path string, transparent bool) {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			if transparent {
+				img.Set(x, y, color.RGBA{0, 0, 0, 0})
+			} else {
+				img.Set(x, y, color.RGBA{255, 0, 0, 255})
+			}
+		}
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatalf("create png: %v", err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+}
 
 func TestFileProcessor_ProcessDirectory(t *testing.T) {
 
@@ -158,72 +183,33 @@ func TestFileProcessor_ProcessFilesWithoutDuplicates(t *testing.T) {
 	}
 }
 
-// test for transparent PNG detection, but needs valid PNG data so still WIP
-// func TestFileProcessor_TransparentPNGDetection(t *testing.T) {
-// 	tempDir, err := os.MkdirTemp("", "gosorter_test_png")
-// 	if err != nil {
-// 		t.Fatalf("Failed to create temp dir: %v", err)
-// 	}
-// 	defer os.RemoveAll(tempDir)
+func TestFileProcessor_TransparentPNGDetection(t *testing.T) {
+	tempDir := t.TempDir()
+	writePNG(t, filepath.Join(tempDir, "transparent.png"), true)
+	writePNG(t, filepath.Join(tempDir, "opaque.png"), false)
 
-// 	// generated with AI, but still not valid, yet
-// 	// Transparent PNG (1x1 pixel with alpha=0)
-// 	transparentPNG := []byte{
-// 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-// 		0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-// 		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 pixels
-// 		0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, // RGBA, no interlace
-// 		0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, // IDAT chunk
-// 		0x54, 0x78, 0x9C, 0x62, 0x00, 0x02, 0x00, 0x00, // Compressed data (transparent pixel)
-// 		0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
-// 		0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, // IEND chunk
-// 		0x42, 0x60, 0x82,
-// 	}
+	config := &model.Config{
+		MoveDuplicates:        false,
+		Silent:                true,
+		DetectTransparentPNGs: true,
+	}
+	stats := &model.Stats{StartTime: time.Now()}
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
 
-// 	// Opaque PNG (1x1 pixel with alpha=255)
-// 	opaquePNG := []byte{
-// 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG signature
-// 		0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, // IHDR chunk
-// 		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // 1x1 pixels
-// 		0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, // RGBA, no interlace
-// 		0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, // IDAT chunk
-// 		0x54, 0x78, 0x9C, 0x62, 0xF8, 0x0F, 0x00, 0x00, // Compressed data (opaque pixel)
-// 		0xFF, 0xFF, 0x01, 0x00, 0x01, 0x00, 0x01, 0x02,
-// 		0x7E, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, // IEND chunk
-// 		0x44, 0xAE, 0x42, 0x60, 0x82,
-// 	}
+	if err := processor.ProcessDirectory(context.Background(), tempDir); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
 
-// 	transparentPath := filepath.Join(tempDir, "transparent.png")
-// 	opaquePath := filepath.Join(tempDir, "opaque.png")
-
-// 	if err := os.WriteFile(transparentPath, transparentPNG, 0644); err != nil {
-// 		t.Fatalf("Failed to create transparent PNG file: %v", err)
-// 	}
-
-// 	if err := os.WriteFile(opaquePath, opaquePNG, 0644); err != nil {
-// 		t.Fatalf("Failed to create opaque PNG file: %v", err)
-// 	}
-
-// 	config := &model.Config{
-// 		MoveDuplicates:        false,
-// 		Verbose:               true,
-// 		Silent:                false,
-// 		DetectTransparentPNGs: true,
-// 	}
-// 	stats := &model.Stats{StartTime: time.Now()}
-
-// 	processor := NewFileProcessor(config, stats)
-// 	ctx := context.Background()
-
-// 	err = processor.ProcessDirectory(ctx, tempDir)
-// 	if err != nil {
-// 		t.Errorf("ProcessDirectory with PNG detection failed: %v", err)
-// 	}
-
-// 	if stats.GetTotalFiles() != 2 {
-// 		t.Errorf("Expected 2 files processed, got %d", stats.GetTotalFiles())
-// 	}
-// }
+	if stats.GetTransparentPNGsMoved() != 1 {
+		t.Fatalf("expected 1 transparent PNG moved, got %d", stats.GetTransparentPNGsMoved())
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "PNGs", "transparent.png")); err != nil {
+		t.Fatalf("transparent PNG should be in PNGs: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "Pictures", "opaque.png")); err != nil {
+		t.Fatalf("opaque PNG should be in Pictures: %v", err)
+	}
+}
 
 func TestFileProcessor_TransparentPNGDetectionDisabled(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "gosorter_test_png_disabled")
@@ -430,5 +416,123 @@ func TestFileProcessor_IdenticalContentKeepsDestination(t *testing.T) {
 	}
 	if !info.ModTime().Before(stats.StartTime) {
 		t.Error("Destination file should have been kept, not replaced")
+	}
+}
+
+func TestFileProcessor_DuplicatesOnly(t *testing.T) {
+	tempDir := t.TempDir()
+	content := []byte("same-bytes")
+	for _, name := range []string{"keep-me.txt", "dup-a.txt", "dup-b.txt"} {
+		if err := os.WriteFile(filepath.Join(tempDir, name), content, 0644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "unique.jpg"), []byte("jpg"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	config := &model.Config{
+		MoveDuplicates: true,
+		DuplicatesOnly: true,
+		Silent:         true,
+	}
+	stats := &model.Stats{StartTime: time.Now()}
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
+
+	if err := processor.ProcessDirectory(context.Background(), tempDir); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
+
+	if stats.GetDuplicatesMoved() < 1 {
+		t.Fatalf("expected duplicates moved, got %d", stats.GetDuplicatesMoved())
+	}
+	// unique file should stay put in duplicates-only mode
+	if _, err := os.Stat(filepath.Join(tempDir, "unique.jpg")); err != nil {
+		t.Fatalf("unique file should remain in place: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "Pictures")); !os.IsNotExist(err) {
+		t.Fatal("duplicates-only should not create extension folders for unique files")
+	}
+}
+
+func TestFileProcessor_SameSizeDifferentContent(t *testing.T) {
+	tempDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempDir, "a.txt"), []byte("AAAA"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "b.txt"), []byte("BBBB"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	config := &model.Config{MoveDuplicates: true, Silent: true}
+	stats := &model.Stats{StartTime: time.Now()}
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
+
+	if err := processor.ProcessDirectory(context.Background(), tempDir); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
+	if stats.GetDuplicatesMoved() != 0 {
+		t.Fatalf("different content should not be duplicates, got %d", stats.GetDuplicatesMoved())
+	}
+	if stats.GetFilesMoved() != 2 {
+		t.Fatalf("expected both files sorted, got %d", stats.GetFilesMoved())
+	}
+}
+
+func TestFileProcessor_ZipWithoutExtractedFolder(t *testing.T) {
+	tempDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempDir, "bundle.zip"), []byte("zip"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	config := &model.Config{Silent: true}
+	stats := &model.Stats{StartTime: time.Now()}
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
+
+	if err := processor.ProcessDirectory(context.Background(), tempDir); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tempDir, "Archives", "bundle.zip")); err != nil {
+		t.Fatalf("zip without extracted folder should go to Archives: %v", err)
+	}
+}
+
+func TestFileProcessor_ContextCancelled(t *testing.T) {
+	tempDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tempDir, "a.txt"), []byte("a"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	config := &model.Config{Silent: true}
+	stats := &model.Stats{StartTime: time.Now()}
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
+
+	err := processor.ProcessDirectory(ctx, tempDir)
+	if err == nil {
+		t.Fatal("expected context cancellation error")
+	}
+}
+
+func TestFileProcessor_SkipsDirectories(t *testing.T) {
+	tempDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(tempDir, "subdir"), 0750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "ok.pdf"), []byte("pdf"), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	config := &model.Config{Silent: true}
+	stats := &model.Stats{StartTime: time.Now()}
+	processor := NewFileProcessor(config, stats, &helpers.CLILogger{})
+
+	if err := processor.ProcessDirectory(context.Background(), tempDir); err != nil {
+		t.Fatalf("ProcessDirectory: %v", err)
+	}
+	if stats.GetTotalFiles() != 1 {
+		t.Fatalf("expected only files counted, got %d", stats.GetTotalFiles())
 	}
 }
