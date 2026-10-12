@@ -34,36 +34,16 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v6
       with:
-        go-version: '1.23.4'
-
-    - name: Cache Go modules
-      uses: actions/cache@v3
-      with:
-        path: ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-
-    - name: Download dependencies
-      run: go mod download
-
-    - name: Check Go formatting
-      run: |
-        UNFORMATTED=$(gofmt -s -l .)
-        if [ -n "$UNFORMATTED" ]; then
-          echo "Code is not formatted correctly. Please run 'go fmt ./...'"
-          echo "$UNFORMATTED"
-          exit 1
-        fi
+        go-version: '1.26'
+        cache: true
 
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.out ./...
-      shell: bash
+      run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
 
     - name: Build binary
       env:
@@ -76,6 +56,7 @@ jobs:
         go build -ldflags="-w -s -X main.Version=$VERSION" -o $BINARY_NAME .
         echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_ENV
         echo "VERSION=$VERSION" >> $GITHUB_ENV
+
     - name: Create tarball (Unix)
       if: matrix.goos != 'windows'
       run: |
@@ -87,15 +68,17 @@ jobs:
       run: |
         zip gosorter-${{ matrix.suffix }}.zip ${{ env.BINARY_NAME }} README.md LICENSE
         echo "ASSET_PATH=gosorter-${{ matrix.suffix }}.zip" >> $GITHUB_ENV
+
     - name: Create or Update GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
         name: GoSorter ${{ github.ref_name }}
         body: |
           ## GoSorter ${{ github.ref_name }}
-          🚀 **High-performance file organizer with duplicate detection**
-          
+
+          File organizer with extension-based sorting and duplicate detection.
+
           ### Download for your platform:
           - **Linux (x64)**: `gosorter-linux-amd64.tar.gz`
           - **Linux (ARM64)**: `gosorter-linux-arm64.tar.gz`
